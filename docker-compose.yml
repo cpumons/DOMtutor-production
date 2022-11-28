@@ -1,0 +1,136 @@
+version: "3.8"
+
+networks:
+  domjudge:
+    driver: bridge
+
+volumes:
+  mariadb_data: {}
+  mariadb_backup: {}
+
+services:
+  mariadb:
+    container_name: domjudge_mariadb
+    image: mariadb:10.8
+    networks:
+      - domjudge
+    ports:
+      - 33060:3306/tcp
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?}
+      MARIADB_USER: domjudge
+      MARIADB_PASSWORD: ${DB_DOMJUDGE_PASSWORD:?}
+      MARIADB_DATABASE: domjudge
+
+  mariadb-backup:
+    container_name: domjudge_mariadb_backup
+    image: fradelg/mysql-cron-backup:1.8.1
+    networks:
+      - domjudge
+    volumes:
+      - mariadb_backup:/backup
+    restart: unless-stopped
+    environment:
+      MYSQL_HOST: mariadb
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_PASS: ${DB_ROOT_PASSWORD:?}
+      CRON_TIME: 12 */6 * * *
+      MAX_BACKUPS: 12
+      INIT_BACKUP: 1
+      TZ: Europe/Vienna
+    
+  domserver:
+    container_name: domjudge
+    image: incaseoftrouble/domtutor_domserver
+    networks:
+      - domjudge
+    ports:
+      - 8080:80/tcp
+    restart: unless-stopped
+    depends_on:
+      - mariadb
+    environment:
+      MYSQL_HOST: mariadb
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?}
+      MYSQL_USER: domjudge
+      MYSQL_PASSWORD: ${DB_DOMJUDGE_PASSWORD:?}
+      MYSQL_DATABASE: domjudge
+      CONTAINER_TIMEZONE: Europe/Vienna
+      DJ_DB_INSTALL_BARE: 1
+    labels:
+      traefik.enable: true
+
+      traefik.http.routers.domjudge.rule: Host(`some.host.tld`)
+      traefik.http.routers.domjudge.entrypoints: https
+      traefik.http.routers.domjudge.middlewares: https-headers@file
+      traefik.http.routers.domjudge.tls: true
+      traefik.http.routers.domjudge.tls.certresolver: letsencrypt
+
+      traefik.http.routers.domjudge_http.rule: Host(`some.host.tld`)
+      traefik.http.routers.domjudge_http.entrypoints: http
+      traefik.http.routers.domjudge_http.middlewares: redirect@file
+      traefik.http.routers.domjudge_http.service: noop@internal
+
+      traefik.http.services.domjudge.loadbalancer.server.port: 80
+      traefik.http.services.domjudge.loadbalancer.server.scheme: http
+
+  judgehost-1:
+    container_name: judgehost-1
+    hostname: judgedaemon-1
+    image: incaseoftrouble/domtutor_judgehost
+    networks:
+      - domjudge
+    privileged: True
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    restart: unless-stopped
+    depends_on:
+      - domserver
+    environment:
+      DAEMON_ID: 1
+      CONTAINER_TIMEZONE: Europe/Vienna
+      JUDGEDAEMON_USERNAME: judgehost
+      JUDGEDAEMON_PASSWORD: ${JUDGE_PASSWORD-}
+      DOMSERVER_BASEURL: http://domjudge/
+
+  judgehost-2:
+    container_name: judgehost-2
+    hostname: judgedaemon-2
+    image: incaseoftrouble/domtutor_judgehost
+    networks:
+      - domjudge
+    privileged: True
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    restart: unless-stopped
+    depends_on:
+      - domserver
+    environment:
+      DAEMON_ID: 2
+      CONTAINER_TIMEZONE: Europe/Vienna
+      JUDGEDAEMON_USERNAME: judgehost
+      JUDGEDAEMON_PASSWORD: ${JUDGE_PASSWORD-}
+      DOMSERVER_BASEURL: http://domjudge/
+
+  judgehost-3:
+    container_name: judgehost-3
+    hostname: judgedaemon-3
+    image: incaseoftrouble/domtutor_judgehost
+    networks:
+      - domjudge
+    privileged: True
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    restart: unless-stopped
+    depends_on:
+      - domserver
+    environment:
+      DAEMON_ID: 3
+      CONTAINER_TIMEZONE: Europe/Vienna
+      JUDGEDAEMON_USERNAME: judgehost
+      JUDGEDAEMON_PASSWORD: ${JUDGE_PASSWORD-}
+      DOMSERVER_BASEURL: http://domjudge/

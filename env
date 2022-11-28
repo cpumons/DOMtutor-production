@@ -1,0 +1,3 @@
+DB_ROOT_PASSWORD=yourPassword1
+DB_DOMJUDGE_PASSWORD=yourPassword2
+JUDGE_PASSWORD=yourPassword3
