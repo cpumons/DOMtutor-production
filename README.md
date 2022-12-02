@@ -3,7 +3,7 @@ This docker was created by [Tobias Meggendorfer](https://github.com/incaseoftrou
 
 # Deployment
 
- * Create `domjudge/.env` with:
+ * Create `./.env` if not present with:
    ```
    DB_ROOT_PASSWORD=<secure password>
    DB_DOMJUDGE_PASSWORD=<secure password>
